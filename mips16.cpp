@@ -1,39 +1,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-unsigned char memory[1024+3]=
+unsigned char inst[1024+3]=
 {
-    0xc0,0x07,0x5a,0x37,
-    0xff,0xff,0x10,0x3c,
-    0xff,0xff,0x10,0x36,
-    0x00,0x00,0x11,0x36,
-    0x01,0x00,0x11,0x16,
-    0x08,0x00,0x00,0x08,
-    0xff,0xff,0x12,0x3c,
-    0xff,0xff,0x52,0x36,
-    0x00,0x01,0x00,0x08
+    0x20,0x80,0x00,0x00,
+    0x0a,0x00,0x11,0x20,
+    0x14,0x00,0x12,0x20,
+    0x20,0x40,0x20,0x02,
+    0xaa,0x00,0x09,0x20,
+    0x0a,0x00,0x2a,0x22,
+    0x00,0x00,0x09,0xad,
+    0x01,0x00,0x08,0x21,
+    0x01,0x00,0x48,0x11,
+    0x06,0x00,0x00,0x08,
+    0x20,0x40,0x40,0x02,
+    0xff,0x00,0x09,0x20,
+    0x0a,0x00,0x4a,0x22,
+    0x00,0x00,0x09,0xad,
+    0x01,0x00,0x08,0x21,
+    0x01,0x00,0x48,0x11,
+    0x0d,0x00,0x00,0x08,
+    0x20,0x40,0x00,0x02,
+    0x20,0x48,0x20,0x02,
+    0x20,0x50,0x40,0x02,
+    0x0a,0x00,0x0b,0x22,
+    0x00,0x00,0x2c,0x8d,
+    0x00,0x00,0x4d,0x8d,
+    0x20,0x70,0x8d,0x01,
+    0x00,0x00,0x0e,0xad,
+    0x01,0x00,0x08,0x21,
+    0x01,0x00,0x29,0x21,
+    0x01,0x00,0x4a,0x21,
+    0x01,0x00,0x68,0x11,
+    0x15,0x00,0x00,0x08
 };
+unsigned int data[1024];
 // running data is stored in memory as little-endian
-unsigned int mips_reg[68];
+unsigned int mips_reg[36];
 enum register_name
 {
-    zero,                                                               // always 0
-    at,                                                                 // reserved for assembly program
-    v0,v1,                                                              // result value
-    a0,a1,a2,a3,                                                        // argument
-    t0,t1,t2,t3,t4,t5,t6,t7,                                            // temporary value
-    s0,s1,s2,s3,s4,s5,s6,s7,                                            // stored value
-    t8,t9,                                                              // other temporary value
-    k0,k1,                                                              // reserved for OS
-    gp,                                                                 // global pointer
-    sp,                                                                 // stack pointer
-    fp,                                                                 // (also s8)frame pointer
-    ra,                                                                 // returned address
-    f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,
-    f15,f16,f17,f18,f19,f20,f21,f22,f23,f24,f25,f26,f27,f28,f29,f30,f31,// float register
-    Hi,Lo,                                                              // used by multiplier
-    PC,                                                                 // program counter
-    IR                                                                  // instruction register
+    zero,                    // always 0
+    at,                      // reserved for assembly program
+    v0,v1,                   // result value
+    a0,a1,a2,a3,             // argument
+    t0,t1,t2,t3,t4,t5,t6,t7, // temporary value
+    s0,s1,s2,s3,s4,s5,s6,s7, // stored value
+    t8,t9,                   // other temporary value
+    k0,k1,                   // reserved for OS
+    gp,                      // global pointer
+    sp,                      // stack pointer
+    fp,                      // (also s8)frame pointer
+    ra,                      // returned address
+    Hi,Lo,                   // used by multiplier
+    PC,                      // program counter
+    IR                       // instruction register
 };
 const char* regname[]=
 {
@@ -49,9 +69,6 @@ const char* regname[]=
     "sp",
     "fp",
     "ra",
-    "f0","f1","f2","f3","f4","f5","f6","f7","f8","f9","f10",
-    "f11","f12","f13","f14","f15","f16","f17","f18","f19","f20",
-    "f21","f22","f23","f24","f25","f26","f27","f28","f29","f30","f31",
     "Hi","Lo",
     "PC","IR"
 };
@@ -167,8 +184,8 @@ void IFORMAT(unsigned int opr)
         case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                    break;
         case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                    break;
         case LUI:   mips_reg[rd] = im<<16;                                                             break;
-        case LW:    mips_reg[rd] = *(unsigned int*)((unsigned char*)memory+mips_reg[rs]+im);           break;
-        case SW:    *(unsigned int*)((unsigned char*)memory+mips_reg[rs]+im) = mips_reg[rd];           break;
+        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+im);                             break;
+        case SW:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                             break;
         case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4; break;
         case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4; break;
     }
@@ -195,13 +212,20 @@ void print_reginfo()
     printf("\n");
     return;
 }
+void print_data()
+{
+    for(int i=0;i<30;++i)
+        printf("%d: 0x%.8x %c",i,data[i],(i+1)%4?' ':'\n');
+    printf("\n");
+    return;
+}
 void proc()
 {
     int opr;
     mips_reg[PC]=0;
     while(mips_reg[PC]<1024)
     {
-        mips_reg[IR]=*(unsigned int*)((unsigned char*)memory+mips_reg[PC]);
+        mips_reg[IR]=*(unsigned int*)((unsigned char*)inst+mips_reg[PC]);
         opr=get_ins();
         if(ADD<=opr && opr<=JR)
             RFORMAT(opr);
@@ -210,6 +234,8 @@ void proc()
         else
             JFORMAT(opr);
         print_reginfo();
+        print_data();
+        system("pause");
     }
     return;
 }
