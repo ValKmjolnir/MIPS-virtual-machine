@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// running data is stored in memory as little-endian
 unsigned char inst[1024+3]=
 {
     0x20,0x80,0x00,0x00,
@@ -35,7 +36,6 @@ unsigned char inst[1024+3]=
     0x15,0x00,0x00,0x08
 };
 unsigned int data[1024];
-// running data is stored in memory as little-endian
 unsigned int mips_reg[36];
 enum register_name
 {
