@@ -2,38 +2,38 @@
 #include <stdlib.h>
 
 // running data is stored in memory as little-endian
-unsigned char inst[1024+3]=
+unsigned int inst[1024]=
 {
-    0x20,0x80,0x00,0x00,
-    0x0a,0x00,0x11,0x20,
-    0x14,0x00,0x12,0x20,
-    0x20,0x40,0x20,0x02,
-    0xaa,0x00,0x09,0x20,
-    0x0a,0x00,0x2a,0x22,
-    0x00,0x00,0x09,0xad,
-    0x01,0x00,0x08,0x21,
-    0x01,0x00,0x48,0x11,
-    0x06,0x00,0x00,0x08,
-    0x20,0x40,0x40,0x02,
-    0xff,0x00,0x09,0x20,
-    0x0a,0x00,0x4a,0x22,
-    0x00,0x00,0x09,0xad,
-    0x01,0x00,0x08,0x21,
-    0x01,0x00,0x48,0x11,
-    0x0d,0x00,0x00,0x08,
-    0x20,0x40,0x00,0x02,
-    0x20,0x48,0x20,0x02,
-    0x20,0x50,0x40,0x02,
-    0x0a,0x00,0x0b,0x22,
-    0x00,0x00,0x2c,0x8d,
-    0x00,0x00,0x4d,0x8d,
-    0x20,0x70,0x8d,0x01,
-    0x00,0x00,0x0e,0xad,
-    0x01,0x00,0x08,0x21,
-    0x01,0x00,0x29,0x21,
-    0x01,0x00,0x4a,0x21,
-    0x01,0x00,0x68,0x11,
-    0x15,0x00,0x00,0x08
+0x00008020,
+0x2011000a,
+0x20120014,
+0x02204020,
+0x200900aa,
+0x222a000a,
+0xad090000,
+0x21080001,
+0x11480001,
+0x08000006,
+0x02404020,
+0x200900ff,
+0x224a000a,
+0xad090000,
+0x21080001,
+0x11480001,
+0x0800000d,
+0x02004020,
+0x02204820,
+0x02405020,
+0x220b000a,
+0x8d2c0000,
+0x8d4d0000,
+0x018d7020,
+0xad0e0000,
+0x21080001,
+0x21290001,
+0x214a0001,
+0x11680001,
+0x08000015
 };
 unsigned int data[1024];
 unsigned int mips_reg[36];
@@ -194,13 +194,17 @@ void IFORMAT(unsigned int opr)
         case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                                 break;
         case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                                 break;
         case LUI:   mips_reg[rd] = im<<16;                                                                          break;
-        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+im);                                          break;
-        case SW:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                                          break;
-        case LB:    tmp = (*(unsigned char*)(data+mips_reg[rs]+im)); mips_reg[rs]=tmp>=128?0xffffff00+tmp:tmp; break;
-        case LBU:   mips_reg[rs] = ((*(unsigned int*)(data+mips_reg[rs]+im))>>24);                                  break;
-        case SB:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                                          break;
+        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+(im>>2));                                     break;
+        case SW:    *(unsigned int*)(data+mips_reg[rs]+(im>>2)) = mips_reg[rd];                                     break;
+        case LB:    tmp = *(unsigned char*)(data+mips_reg[rs]+im); mips_reg[rs]=(tmp>=128?0xffffff00+tmp:tmp);      break;
+        case LBU:   mips_reg[rs] = 0x00000000+*(unsigned char*)(data+mips_reg[rs]+im);                              break;
+        case SB:    *(unsigned char*)(data+mips_reg[rs]+im) = (unsigned char)(mips_reg[rd]&0xff);                   break;
         case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
         case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
+        case BGEZ:break;
+		case BGTZ:break;
+		case BLEZ:break;
+		case BLTZ:break;
     }
     mips_reg[PC] += (opr==BEQ||opr==BNE)?0:4;
     mips_reg[zero] = 0;
@@ -238,11 +242,11 @@ void proc()
     mips_reg[PC]=0;
     while(mips_reg[PC]<1024)
     {
-        mips_reg[IR]=*(unsigned int*)((unsigned char*)inst+mips_reg[PC]);
+        mips_reg[IR]=*(unsigned int*)(inst+(mips_reg[PC]>>2));
         opr=get_ins();
-        if(ADD<=opr && opr<=JR)
+        if(ADD<=opr && opr<=JALR)
             RFORMAT(opr);
-        else if(ADDI<=opr && opr<=BNE)
+        else if(ADDI<=opr && opr<=BLTZ)
             IFORMAT(opr);
         else
             JFORMAT(opr);
