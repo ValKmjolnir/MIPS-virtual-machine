@@ -80,12 +80,13 @@ enum instruction_set
     AND,OR,XOR,NOR,
     SLL,SRL,SRA,
     SLLV,SRLV,SRAV,
-    JR,
+    JR,JALR,
     //I-format
     ADDI,ADDIU,
     SLTI,SLTIU,
     ANDI,ORI,XORI,
-    LUI,LW,SW,BEQ,BNE,
+    LUI,LW,SW,LB,LBU,SB,
+    BEQ,BNE,BGEZ,BGTZ,BLEZ,BLTZ,
     //J-format
     J,JAL
 };
@@ -113,11 +114,15 @@ int get_ins()
             case 0x06:ret_ins=SRLV;break;
             case 0x07:ret_ins=SRAV;break;
             case 0x08:ret_ins=JR;break;
+            case 0x09:ret_ins=JALR;break;
             default:break;
         }
     switch(op)
     {
         case 0x00000000:break;
+        case 0x04000000:ret_ins=(mips_reg[IR]&0x00010000)? BGEZ:BLTZ;break;
+        case 0x1c000000:ret_ins=BGTZ;break;
+        case 0x18000000:ret_ins=BLEZ;break;
         case 0x20000000:ret_ins=ADDI;break;
         case 0x24000000:ret_ins=ADDIU;break;
         case 0x28000000:ret_ins=SLTI;break;
@@ -128,6 +133,9 @@ int get_ins()
         case 0x3c000000:ret_ins=LUI;break;
         case 0x8c000000:ret_ins=LW;break;
         case 0xac000000:ret_ins=SW;break;
+        case 0x80000000:ret_ins=LB;break;
+        case 0x90000000:ret_ins=LBU;break;
+        case 0xa0000000:ret_ins=SB;break;
         case 0x10000000:ret_ins=BEQ;break;
         case 0x14000000:ret_ins=BNE;break;
         case 0x08000000:ret_ins=J;break;
@@ -163,8 +171,9 @@ void RFORMAT(unsigned int opr)
         case SRLV: mips_reg[rd] = mips_reg[rt]>>mips_reg[rs];                          break;
         case SRAV: mips_reg[rd] = rt_flag|((mips_reg[rt]^rt_flag)>>mips_reg[rs]);      break;
         case JR:   mips_reg[PC] = mips_reg[rs];                                        break;
+        case JALR: mips_reg[ra] = mips_reg[PC]+4;mips_reg[PC] = mips_reg[rs];          break;
     }
-    mips_reg[PC] += opr==JR?0:4;
+    mips_reg[PC] += (opr==JR || opr==JALR)?0:4;
     mips_reg[zero] = 0;
     return;
 }
@@ -174,20 +183,24 @@ void IFORMAT(unsigned int opr)
     rs=(mips_reg[IR]&0x03e00000)>>21;
     rd=(mips_reg[IR]&0x001f0000)>>16;
     im=mips_reg[IR]&0x0000ffff;
+    unsigned char tmp;
     switch(opr)
     {
-        case ADDI:  mips_reg[rd] = (int)mips_reg[rs]+(int)im;                                          break;
-        case ADDIU: mips_reg[rd] = mips_reg[rs]+im;                                                    break;
-        case SLTI:  mips_reg[rd] = ((int)mips_reg[rs]<(int)im)?1:0;                                    break;
-        case SLTIU: mips_reg[rd] = (mips_reg[rs]<im)?1:0;                                              break;
-        case ANDI:  mips_reg[rd] = mips_reg[rs]&im;                                                    break;
-        case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                    break;
-        case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                    break;
-        case LUI:   mips_reg[rd] = im<<16;                                                             break;
-        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+im);                             break;
-        case SW:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                             break;
-        case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4; break;
-        case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4; break;
+        case ADDI:  mips_reg[rd] = (int)mips_reg[rs]+(int)im;                                                       break;
+        case ADDIU: mips_reg[rd] = mips_reg[rs]+im;                                                                 break;
+        case SLTI:  mips_reg[rd] = ((int)mips_reg[rs]<(int)im)?1:0;                                                 break;
+        case SLTIU: mips_reg[rd] = (mips_reg[rs]<im)?1:0;                                                           break;
+        case ANDI:  mips_reg[rd] = mips_reg[rs]&im;                                                                 break;
+        case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                                 break;
+        case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                                 break;
+        case LUI:   mips_reg[rd] = im<<16;                                                                          break;
+        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+im);                                          break;
+        case SW:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                                          break;
+        case LB:    tmp = (*(unsigned char*)(data+mips_reg[rs]+im)); mips_reg[rs]=tmp>=128?0xffffff00+tmp:tmp; break;
+        case LBU:   mips_reg[rs] = ((*(unsigned int*)(data+mips_reg[rs]+im))>>24);                                  break;
+        case SB:    *(unsigned int*)(data+mips_reg[rs]+im) = mips_reg[rd];                                          break;
+        case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
+        case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
     }
     mips_reg[PC] += (opr==BEQ||opr==BNE)?0:4;
     mips_reg[zero] = 0;
@@ -341,6 +354,7 @@ srav 000000 rs    rt    rd    00000 000111 rd=rt>>rs(sign flag reserved)
 
      op     rs    rt    rd    shamt funct  function
 jr   000000 rs    00000 00000 00000 001000 PC=rs
+jalr 000000 rs    00000 11111 00000 001001 $31=PC+4,PC=rs
 
 I
       op     rs    rd    im
@@ -359,19 +373,26 @@ xori  001110 rs    rd    im rd=rs^im
 
       op     rs    rd    im
 lui   001111 00000 rd    im rd=im*65536(rd=im<<16) (fill the register's high 16 bit)
-lw    100011 rs    rd    im rd=memory[rs+im]
-sw    101011 rs    rd    im memory[rs+im]=rd
+lw    100011 rs    rd    im rd=memory[rs+sign_ext(im)]
+sw    101011 rs    rd    im memory[rs+sign_ext(im)]=rd
+lb    100000 rs    rd    im rd=sign_ext(memory[rs+sign_ext(im)])
+lbu   100100 rs    rd    im rd=zero_ext(memory[rs+sign_ext(im)])
+sb    101000 rs    rd    im memory[rs+sign_ext(im)]=rd
 
       op     rs    rd    im
-beq   000100 rs    rd    im PC=(rs==rd)?PC+4+im<<2:PC
-bne   000101 rs    rd    im PC=(rs!=rd)?PC+4+im<<2:PC
+beq   000100 rs    rd    im PC=(rs==rd)?PC+4+im<<2:PC+4
+bne   000101 rs    rd    im PC=(rs!=rd)?PC+4+im<<2:PC+4
+bgez  000001 rs    00001 im PC=(rs>=0 )?PC+4+im<<2:PC+4
+bgtz  000111 rs    00000 im PC=(rs>0  )?PC+4+im<<2:PC+4
+blez  000110 rs    00000 im PC=(rs<=0 )?PC+4+im<<2:PC+4
+bltz  000001 rs    00000 im PC=(rs<0  )?PC+4+im<<2:PC+4
 
 J
       op     address
 bit   31-26  25-0
 
       op     address
-j     000010 addr    PC={(PC+4)[31,28],addr,00}
-jal   000011 addr    $31=PC; PC={(PC+4)[31,28],addr,00}
+j     000010 addr    PC={(PC+4)[31:28],addr,00}
+jal   000011 addr    $31=PC; PC={(PC+4)[31:28],addr,00}
 $31 is ra register
 */
