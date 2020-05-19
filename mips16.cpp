@@ -1,40 +1,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// running data is stored in memory as little-endian
+// 1024*4=4096 bytes
 unsigned int inst[1024]=
 {
-0x00008020,
-0x2011000a,
-0x20120014,
-0x02204020,
-0x200900aa,
-0x222a000a,
-0xad090000,
-0x21080001,
-0x11480001,
-0x08000006,
-0x02404020,
-0x200900ff,
-0x224a000a,
-0xad090000,
-0x21080001,
-0x11480001,
-0x0800000d,
-0x02004020,
-0x02204820,
-0x02405020,
-0x220b000a,
-0x8d2c0000,
-0x8d4d0000,
-0x018d7020,
-0xad0e0000,
-0x21080001,
-0x21290001,
-0x214a0001,
-0x11680001,
-0x08000015
+    0x00008020,
+    0x20110028,
+    0x20120050,
+    0x02204020,
+    0x200900aa,
+    0x222a0028,
+    0xad090000,
+    0x21080004,
+    0x11480001,
+    0x08000006,
+    0x02404020,
+    0x200900ff,
+    0x224a0028,
+    0xad090000,
+    0x21080004,
+    0x11480001,
+    0x0800000d,
+    0x02004020,
+    0x02204820,
+    0x02405020,
+    0x220b0028,
+    0x8d2c0000,
+    0x8d4d0000,
+    0x018d7020,
+    0xad0e0000,
+    0x21080004,
+    0x21290004,
+    0x214a0004,
+    0x11680001,
+    0x08000015
 };
+// 1024*4=4096 bytes
 unsigned int data[1024];
 unsigned int mips_reg[36];
 enum register_name
@@ -90,6 +91,12 @@ enum instruction_set
     //J-format
     J,JAL
 };
+unsigned int sign_extend(unsigned int imm16)
+{
+    if(imm16&0x00008000) imm16|=0xffff0000;
+    else                 imm16&=0x0000ffff;
+    return imm16;
+}
 int get_ins()
 {
     int op=mips_reg[IR]&0xfc000000;
@@ -152,61 +159,61 @@ void RFORMAT(unsigned int opr)
     rd=   (mips_reg[IR]&0x0000f800)>>11;
     shamt=(mips_reg[IR]&0x000007c0)>>6;
     rt_flag=0x80000000&mips_reg[rt];
+    mips_reg[PC]+=4;
     switch(opr)
     {
-        case ADD:  mips_reg[rd] = (unsigned int)((int)mips_reg[rs]+(int)mips_reg[rt]); break;
-        case ADDU: mips_reg[rd] = mips_reg[rs]+mips_reg[rt];                           break;
-        case SUB:  mips_reg[rd] = (unsigned int)((int)mips_reg[rs]-(int)mips_reg[rt]); break;
-        case SUBU: mips_reg[rd] = mips_reg[rs]-mips_reg[rt];                           break;
-        case SLT:  mips_reg[rd] = ((int)mips_reg[rs]<(int)mips_reg[rt])?1:0;           break;
-        case SLTU: mips_reg[rd] = (mips_reg[rs]<mips_reg[rt])?1:0;                     break;
-        case AND:  mips_reg[rd] = mips_reg[rs]&mips_reg[rt];                           break;
-        case OR:   mips_reg[rd] = mips_reg[rs]|mips_reg[rt];                           break;
-        case XOR:  mips_reg[rd] = mips_reg[rs]^mips_reg[rt];                           break;
-        case NOR:  mips_reg[rd] = !(mips_reg[rs]|mips_reg[rt]);                        break;
-        case SLL:  mips_reg[rd] = mips_reg[rt]<<shamt;                                 break;
-        case SRL:  mips_reg[rd] = mips_reg[rt]>>shamt;                                 break;
-        case SRA:  mips_reg[rd] = rt_flag|((mips_reg[rt]^rt_flag)>>shamt);             break;
-        case SLLV: mips_reg[rd] = mips_reg[rt]<<mips_reg[rs];                          break;
-        case SRLV: mips_reg[rd] = mips_reg[rt]>>mips_reg[rs];                          break;
-        case SRAV: mips_reg[rd] = rt_flag|((mips_reg[rt]^rt_flag)>>mips_reg[rs]);      break;
-        case JR:   mips_reg[PC] = mips_reg[rs];                                        break;
-        case JALR: mips_reg[ra] = mips_reg[PC]+4;mips_reg[PC] = mips_reg[rs];          break;
+        case ADD:  mips_reg[rd] = mips_reg[rs]+mips_reg[rt];                      break;
+        case ADDU: mips_reg[rd] = mips_reg[rs]+mips_reg[rt];                      break;
+        case SUB:  mips_reg[rd] = (unsigned int)(mips_reg[rs]-mips_reg[rt]);      break;
+        case SUBU: mips_reg[rd] = mips_reg[rs]-mips_reg[rt];                      break;
+        case SLT:  mips_reg[rd] = ((int)mips_reg[rs]<(int)mips_reg[rt])?1:0;      break;
+        case SLTU: mips_reg[rd] = (mips_reg[rs]<mips_reg[rt])?1:0;                break;
+        case AND:  mips_reg[rd] = mips_reg[rs]&mips_reg[rt];                      break;
+        case OR:   mips_reg[rd] = mips_reg[rs]|mips_reg[rt];                      break;
+        case XOR:  mips_reg[rd] = mips_reg[rs]^mips_reg[rt];                      break;
+        case NOR:  mips_reg[rd] = !(mips_reg[rs]|mips_reg[rt]);                   break;
+        case SLL:  mips_reg[rd] = mips_reg[rt]<<shamt;                            break;
+        case SRL:  mips_reg[rd] = mips_reg[rt]>>shamt;                            break;
+        case SRA:  mips_reg[rd] = rt_flag|((mips_reg[rt]^rt_flag)>>shamt);        break;
+        case SLLV: mips_reg[rd] = mips_reg[rt]<<mips_reg[rs];                     break;
+        case SRLV: mips_reg[rd] = mips_reg[rt]>>mips_reg[rs];                     break;
+        case SRAV: mips_reg[rd] = rt_flag|((mips_reg[rt]^rt_flag)>>mips_reg[rs]); break;
+        case JR:   mips_reg[PC] = mips_reg[rs];                                   break;
+        case JALR: mips_reg[ra] = mips_reg[PC];mips_reg[PC] = mips_reg[rs];       break;
     }
-    mips_reg[PC] += (opr==JR || opr==JALR)?0:4;
     mips_reg[zero] = 0;
     return;
 }
 void IFORMAT(unsigned int opr)
 {
-    unsigned int rs,rd,im;
+    unsigned int rs,rd,im=0;
     rs=(mips_reg[IR]&0x03e00000)>>21;
     rd=(mips_reg[IR]&0x001f0000)>>16;
     im=mips_reg[IR]&0x0000ffff;
     unsigned char tmp;
+    mips_reg[PC]+=4;
     switch(opr)
     {
-        case ADDI:  mips_reg[rd] = (int)mips_reg[rs]+(int)im;                                                       break;
-        case ADDIU: mips_reg[rd] = mips_reg[rs]+im;                                                                 break;
-        case SLTI:  mips_reg[rd] = ((int)mips_reg[rs]<(int)im)?1:0;                                                 break;
-        case SLTIU: mips_reg[rd] = (mips_reg[rs]<im)?1:0;                                                           break;
-        case ANDI:  mips_reg[rd] = mips_reg[rs]&im;                                                                 break;
-        case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                                 break;
-        case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                                 break;
-        case LUI:   mips_reg[rd] = im<<16;                                                                          break;
-        case LW:    mips_reg[rd] = *(unsigned int*)(data+mips_reg[rs]+(im>>2));                                     break;
-        case SW:    *(unsigned int*)(data+mips_reg[rs]+(im>>2)) = mips_reg[rd];                                     break;
-        case LB:    tmp = *(unsigned char*)(data+mips_reg[rs]+im); mips_reg[rs]=(tmp>=128?0xffffff00+tmp:tmp);      break;
-        case LBU:   mips_reg[rs] = 0x00000000+*(unsigned char*)(data+mips_reg[rs]+im);                              break;
-        case SB:    *(unsigned char*)(data+mips_reg[rs]+im) = (unsigned char)(mips_reg[rd]&0xff);                   break;
-        case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
-        case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+4+(im<<2):mips_reg[PC]+4;              break;
-        case BGEZ:break;
-		case BGTZ:break;
-		case BLEZ:break;
-		case BLTZ:break;
+        case ADDI:  mips_reg[rd] = mips_reg[rs]+sign_extend(im);                                                break;
+        case ADDIU: mips_reg[rd] = mips_reg[rs]+sign_extend(im);                                                break;
+        case SLTI:  mips_reg[rd] = ((int)mips_reg[rs]<(int)sign_extend(im))?1:0;                                break;
+        case SLTIU: mips_reg[rd] = (mips_reg[rs]<sign_extend(im))?1:0;                                          break;
+        case ANDI:  mips_reg[rd] = mips_reg[rs]&im;                                                             break;
+        case ORI:   mips_reg[rd] = mips_reg[rs]|im;                                                             break;
+        case XORI:  mips_reg[rd] = mips_reg[rs]^im;                                                             break;
+        case LUI:   mips_reg[rd] = im<<16;                                                                      break;
+        case LW:    mips_reg[rd] = *(unsigned int*)((unsigned char*)data+mips_reg[rs]+sign_extend(im));         break;
+        case SW:    *(unsigned int*)((unsigned char*)data+mips_reg[rs]+sign_extend(im)) = mips_reg[rd];         break;
+        case LB:    tmp = *((unsigned char*)data+mips_reg[rs]+im);mips_reg[rd]=(tmp>=128?0xffffff00+tmp:tmp);   break;
+        case LBU:   mips_reg[rd] = 0x00000000+*((unsigned char*)data+mips_reg[rs]+sign_extend(im));             break;
+        case SB:    *((unsigned char*)data+mips_reg[rs]+sign_extend(im)) = (unsigned char)(mips_reg[rd]&0xff);  break;
+        case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+        case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+        case BGEZ:  mips_reg[PC] = (mips_reg[rs]>=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+		case BGTZ:  mips_reg[PC] = (mips_reg[rs]>mips_reg[rd])? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+		case BLEZ:  mips_reg[PC] = (mips_reg[rs]<=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+		case BLTZ:  mips_reg[PC] = (mips_reg[rs]<mips_reg[rd])? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
     }
-    mips_reg[PC] += (opr==BEQ||opr==BNE)?0:4;
     mips_reg[zero] = 0;
     return;
 }
@@ -214,10 +221,11 @@ void JFORMAT(unsigned int opr)
 {
     int addr;
     addr=mips_reg[IR]&0x03ffffff;
+    mips_reg[PC]+=4;
     switch(opr)
     {
-        case J:   mips_reg[PC] = ((mips_reg[PC]+4)&0xf0000000)+(addr<<2);                               break;
-        case JAL: mips_reg[ra] = mips_reg[PC]+4;mips_reg[PC] = ((mips_reg[PC]+4)&0xf0000000)+(addr<<2); break;
+        case J:   mips_reg[PC] = (mips_reg[PC]&0xf0000000)+(addr<<2);                             break;
+        case JAL: mips_reg[ra] = mips_reg[PC];mips_reg[PC] = (mips_reg[PC]&0xf0000000)+(addr<<2); break;
     }
     mips_reg[zero] = 0;
     return;
@@ -240,7 +248,7 @@ void proc()
 {
     int opr;
     mips_reg[PC]=0;
-    while(mips_reg[PC]<1024)
+    while(mips_reg[PC]<4096)
     {
         mips_reg[IR]=*(unsigned int*)(inst+(mips_reg[PC]>>2));
         opr=get_ins();
