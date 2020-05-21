@@ -204,15 +204,15 @@ void IFORMAT(unsigned int opr)
         case LUI:   mips_reg[rd] = im<<16;                                                                      break;
         case LW:    mips_reg[rd] = *(unsigned int*)((unsigned char*)data+mips_reg[rs]+sign_extend(im));         break;
         case SW:    *(unsigned int*)((unsigned char*)data+mips_reg[rs]+sign_extend(im)) = mips_reg[rd];         break;
-        case LB:    tmp = *((unsigned char*)data+mips_reg[rs]+im);mips_reg[rd]=(tmp>=128?0xffffff00+tmp:tmp);   break;
+        case LB:    tmp = *((unsigned char*)data+mips_reg[rs]+im);mips_reg[rd]=(tmp>=128?0xffffff00+tmp:0+tmp); break;
         case LBU:   mips_reg[rd] = 0x00000000+*((unsigned char*)data+mips_reg[rs]+sign_extend(im));             break;
         case SB:    *((unsigned char*)data+mips_reg[rs]+sign_extend(im)) = (unsigned char)(mips_reg[rd]&0xff);  break;
         case BEQ:   mips_reg[PC] = (mips_reg[rs]==mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
         case BNE:   mips_reg[PC] = (mips_reg[rs]!=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
-        case BGEZ:  mips_reg[PC] = (mips_reg[rs]>=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
-		case BGTZ:  mips_reg[PC] = (mips_reg[rs]>mips_reg[rd])? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
-		case BLEZ:  mips_reg[PC] = (mips_reg[rs]<=mips_reg[rd])?mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
-		case BLTZ:  mips_reg[PC] = (mips_reg[rs]<mips_reg[rd])? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC]; break;
+        case BGEZ:  mips_reg[PC] = ((int)mips_reg[rs]>=0)? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC];      break;
+		case BGTZ:  mips_reg[PC] = ((int)mips_reg[rs]>0 )? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC];      break;
+		case BLEZ:  mips_reg[PC] = ((int)mips_reg[rs]<=0)? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC];      break;
+		case BLTZ:  mips_reg[PC] = ((int)mips_reg[rs]<0 )? mips_reg[PC]+(sign_extend(im)<<2):mips_reg[PC];      break;
     }
     mips_reg[zero] = 0;
     return;
